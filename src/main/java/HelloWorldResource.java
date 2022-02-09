@@ -1,4 +1,5 @@
 import com.codahale.metrics.annotation.Timed;
+import redis.clients.jedis.Jedis;
 
 import javax.validation.Valid;
 import javax.ws.rs.*;
@@ -18,29 +19,22 @@ public class HelloWorldResource {
     private final String template;
     private final String defaultName;
     private final AtomicLong counter;
-    Connection con;
+   Jedis jed;
 
-    public HelloWorldResource(String template, String defaultName , Connection con) {
+    public HelloWorldResource(String template, String defaultName , Jedis jed) {
 
         this.template = template;
         this.defaultName = defaultName;
         this.counter = new AtomicLong();
-        this.con = con;
+        this.jed = jed;
     }
 
     @GET
     @Timed
-    @Path("/users")
-    public Saying sayHello(@QueryParam("name") Optional<String> name) throws SQLException {
-        Saying result = null;
-        int k =0;
-        String query = "Select * from test where id = 1";
+    @Path("/users/{id}")
+    public Saying sayHello(@PathParam("id") String id) throws SQLException {
 
-
-         PreparedStatement preparedStatement = con.prepareStatement(query);
-         ResultSet resultSet = preparedStatement.executeQuery();
-         while(resultSet.next())
-         result = new Saying( resultSet.getInt("id"),resultSet.getString("name"));
+        Saying result = new Saying(Integer.parseInt(id),jed.get(id));
 
         return result;
     }
@@ -49,29 +43,23 @@ public class HelloWorldResource {
     @Path("/users/insert")
     public void PostHello(@Valid Saying temp )throws SQLException
     {
-        PreparedStatement stmt = con.prepareStatement("INSERT INTO test values (?, ?)");
-        stmt.setInt(1, temp.id);
-        stmt.setString(2, temp.content);
-        stmt.executeUpdate();
+        jed.set(Integer.toString(temp.id),temp.content);
     }
+
 
     @PATCH
     @Path("/users/insert/{id}")
     public void makeChange(@PathParam("id") int id, Saying temp )throws SQLException
     {
-        PreparedStatement stmt = con.prepareStatement(" UPDATE test SET name = ? where id = ?");
-        stmt.setString(1, temp.content);
-        stmt.setInt(2, id);
-        stmt.executeUpdate();
+        jed.set(Integer.toString(id),temp.content);
     }
+
 
     @DELETE
     @Path("/users/delete/{id}")
-    public void delete(@PathParam("id") int id) throws SQLException
+    public void delete(@PathParam("id") String id) throws SQLException
     {
-        PreparedStatement stmt = con.prepareStatement(" DELETE FROM test where id =?");
-        stmt.setInt(1, id);
-        stmt.executeUpdate();
+        jed.del(id);
     }
 }
 
